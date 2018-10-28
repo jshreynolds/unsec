@@ -14,6 +14,14 @@
 (defn get-repertoire-url [lang]
   (get-fqdn-url (str "/" lang "/sc/repertoire/")))
 
+(defn make-transformer [csv-line]
+  (let [[old new] (stringo/split csv-line #",")]
+    (fn [s] (stringo/replace s old new))))
+
+(defn transform [source csv-line] 
+  (println (str "reducing..." csv-line))
+  ((make-transformer csv-line) source))
+
 (defn fetch-url [url]
   (html/html-resource (java.net.URL. url)))
 
@@ -44,11 +52,17 @@
 (defn html-page-content [url]
   (apply str (html/emit* (page-content url))))
 
+(defn mapped-html-page-content [url]
+  (let [file-content (html-page-content url)]
+    (with-open [rdr (io/reader "resources/repertoire-menu.csv")]
+      (reduce transform file-content (line-seq rdr)
+      ))))
+
 (defn write-page-to-file
   [fragment-url
    base-dir]
   (let [full-url (get-fqdn-url fragment-url)
-        file-content (html-page-content full-url)
+        file-content (mapped-html-page-content full-url)
         file-path (str base-dir fragment-url)]
     (io/make-parents file-path)
     (spit file-path file-content :append true)))
@@ -66,8 +80,8 @@
         (.write wrtr (str line "\n"))))))
 
 
-(def languages ["ar" "zh" "en" "fr" "ru" "es"])
-;(def languages ["en"])
+; (def languages ["ar" "zh" "en" "fr" "ru" "es"])
+(def languages ["en"])
 
 (defn -main
   "I don't do a whole lot ... yet."
